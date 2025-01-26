@@ -6,7 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 
-
 Label = namedtuple('Label', ['name', 'color', 'trainId'])
 
 gta5_labels = [
@@ -44,7 +43,7 @@ def rgb_to_class(label_image):
     for color, class_id in color_to_class.items():
         mask = np.all(label_np == color, axis=-1)
         class_label[mask] = class_id
-    
+
     return class_label
 
 class GTA5Dataset(Dataset):
@@ -103,38 +102,15 @@ class GTA5Dataset(Dataset):
 
     def check_label_format(self, idx):
         """Verifica i valori unici in una etichetta per un determinato indice."""
-        label = Image.open(self.labels[idx]).convert('RGB') 
+        label = Image.open(self.labels[idx]).convert('RGB')
         label_np = np.array(label, dtype=np.uint8)
         unique_labels = np.unique(label_np.reshape(-1, label_np.shape[2]), axis=0)
         print(f"Valori unici trovati nell'etichetta {idx}: {unique_labels}")
 
-train_img_transform = transforms.Compose([
-    transforms.Resize((720, 1280)),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
 
-train_mask_transform = transforms.Compose([
-    transforms.Resize((720, 1280), interpolation=Image.NEAREST)
-])
-
-val_img_transform = transforms.Compose([
-    transforms.Resize((512, 1024)),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
-
-val_mask_transform = transforms.Compose([
-    transforms.Resize((512, 1024), interpolation=Image.NEAREST)
-])
-
-GTA_train_dataset = GTA5Dataset(root='/kaggle/input/gta5data/GTA5/',
-                                transform=train_img_transform,
-                                target_transform=train_mask_transform)
-
-train_loader = DataLoader(GTA_train_dataset, batch_size=4, shuffle=True)
 
 if __name__ == "__main__":
-    dataset = GTA5Dataset(root='/kaggle/input/gta5data/GTA5/')
+    dataset = GTA5Dataset(root='/kaggle/input/gta5data/GTA5')
     dataset.visualize_sample(0)
     dataset.check_label_format(0)
 
-print('GTA5')
