@@ -18,7 +18,7 @@ Semantic segmentation plays a crucial role in computer vision, requiring pixel-w
 ## Results  
 - **Baseline Performance**: Without domain adaptation, BiSeNet experiences significant mIoU drops when transitioning from synthetic to real-world datasets.  
 - **Data Augmentation**: Improved mIoU from 21.11% to 23.93%.  
-- **Adversarial Training**: Further enhanced mIoU to 26.46%, highlighting the potential of domain adaptation techniques.  
+- **Adversarial Training**: Further enhanced mIoU to 26.95%, highlighting the potential of domain adaptation techniques.  
 - **Comparison with DeepLabV2**: While DeepLabV2 achieves higher accuracy, BiSeNet offers a practical trade-off for real-time use cases.  
 
 ## Conclusion  
