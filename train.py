@@ -9,10 +9,9 @@ from torchvision.transforms import functional as TF
 from PIL import Image
 from tqdm import tqdm
 from itertools import cycle
-from config import config  # Importa il dizionario di configurazione
+from config import config 
 
 
-# Import personalizzati
 from utils.metrics import fast_hist, per_class_iou
 from models.bisenet import BiSeNet
 from models.deeplab import get_deeplab_v2
@@ -21,13 +20,13 @@ from datasets.cityscapes import CityScapes
 from datasets.gta5 import GTA5Dataset
 
 
-torch.autograd.set_detect_anomaly(True)  # Abilita il rilevamento di anomalie nel backpropagation
+torch.autograd.set_detect_anomaly(True)  # Enable backpropagation anomaly detection
 
 class SemanticSegmentationPipeline:
     def __init__(self, config):
         self.config = config
         self.device = config["device"]
-        self.adversarial = config.get("adversarial", False)  # Flag per il training adversariale
+        self.adversarial = config.get("adversarial", False)  # Flag for adversial training
         self.model, self.optimizer, self.loss_fn, self.model_D, self.optimizer_D, self.loss_D = self._initialize_model()
         self.train_loader, self.val_loader, self.data_height, self.data_width = self._initialize_dataloaders()
 
@@ -52,7 +51,7 @@ class SemanticSegmentationPipeline:
         optimizer = self._initialize_optimizer(model)
         loss_fn = nn.CrossEntropyLoss(ignore_index=self.config["ignore_index"])
 
-        # Inizializza il discriminatore e le sue componenti se il training adversariale è abilitato
+        
         if self.adversarial:
             model_D = FCDiscriminator(num_classes=num_classes).to(self.device)
             if self.config["parallelize"] and torch.cuda.device_count() > 1:
@@ -78,7 +77,7 @@ class SemanticSegmentationPipeline:
         train_dataset = self._get_dataset(self.config["train_dataset_name"], split="train")
         val_dataset = self._get_dataset(self.config["val_dataset_name"], split="val")
         
-        # Imposta le dimensioni dinamicamente
+        
         if self.config["train_dataset_name"] == "CityScapes":
             self.data_height, self.data_width = 512, 1024
         elif self.config["train_dataset_name"] == "GTAV":
@@ -98,7 +97,7 @@ class SemanticSegmentationPipeline:
     
         if dataset_name == "CityScapes":
             root_dir = self.config["CITYSCAPES_PATH"]
-            return CityScapes(root_dir, split=split, transform=transform)  # Rimuoviamo augmentations
+            return CityScapes(root_dir, split=split, transform=transform) 
         elif dataset_name == "GTAV":
             root_dir = self.config["GTAV_PATH"]
             augmentations_fn = self._get_augmentations(self.config["augmentations"])
@@ -108,7 +107,7 @@ class SemanticSegmentationPipeline:
 
 
     def _get_transform(self, dataset_name):
-        # Dimensioni delle immagini in base al dataset
+        
         if dataset_name == "CityScapes":
             image_height, image_width = 512, 1024
         elif dataset_name == "GTAV":
@@ -116,7 +115,7 @@ class SemanticSegmentationPipeline:
         else:
             raise ValueError(f"Unsupported dataset: {dataset_name}")
 
-        # Trasformazioni di base
+        
         return transforms.Compose([
             transforms.Resize((image_height, image_width)),
             transforms.ToTensor(),
@@ -142,8 +141,8 @@ class SemanticSegmentationPipeline:
             elif augmentations == 3:  # RandomResizeCrop + Horizontal flip + Gaussian blur + Color jitter
                 # Random Resize Crop con probabilità 0.5
                 if random.random() > 0.5:
-                    scale = random.uniform(0.8, 1.0)  # Ridimensionamento casuale
-                    ratio = random.uniform(0.9, 1.1)  # Rapporto larghezza/altezza
+                    scale = random.uniform(0.8, 1.0)  
+                    ratio = random.uniform(0.9, 1.1) 
                     new_height = int(image.size[1] * scale)
                     new_width = int(image.size[0] * scale)
                     image = TF.resize(image, (new_height, new_width))
@@ -166,11 +165,11 @@ class SemanticSegmentationPipeline:
             
                 # Gaussian blur
                 if random.random() > 0.5:
-                    sigma = random.uniform(0.1, 2.0)  # Scegli una sigma casuale
+                    sigma = random.uniform(0.1, 2.0) 
                     image = TF.gaussian_blur(image, kernel_size=(5, 5), sigma=(sigma, sigma))
     
-            # **Ridimensionamento finale per garantire uniformità**
-            final_height, final_width = 512, 1024  # Dimensioni standard (modifica secondo il dataset)
+           
+            final_height, final_width = 512, 1024 
             image = TF.resize(image, (final_height, final_width))
             label = TF.resize(label, (final_height, final_width), interpolation=Image.NEAREST)
     
@@ -195,16 +194,16 @@ class SemanticSegmentationPipeline:
         checkpoint_files = [f for f in os.listdir(self.config["checkpoint_dir"]) if f.endswith(".pth")]
         if not checkpoint_files:
             print("Nessun checkpoint trovato. Inizio del training da zero.")
-            return 0  # Inizia dalla prima epoca
+            return 0 
         
-        # Trova l'ultimo checkpoint in base all'ordine alfabetico o numerico
+        
         latest_checkpoint = sorted(checkpoint_files, key=lambda x: int(x.split('_')[-1].split('.')[0]))[-1]
         checkpoint_path = os.path.join(self.config["checkpoint_dir"], latest_checkpoint)
         
         checkpoint = torch.load(checkpoint_path)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        start_epoch = checkpoint['epoch'] + 1  # Riprendi dall'epoca successiva
+        start_epoch = checkpoint['epoch'] + 1  
         print(f"Checkpoint caricato: {checkpoint_path}. Ripresa dal'epoca {start_epoch}.")
         return start_epoch
 
@@ -213,32 +212,32 @@ class SemanticSegmentationPipeline:
         total_loss, total_miou = 0, 0
         class_ious = np.zeros(self.config["num_classes"])
         class_counts = np.zeros(self.config["num_classes"])
-        lambda_adv = 0.001  # Peso per la adversarial loss
+        lambda_adv = 0.001  
     
         self.model.train()
         self.model_D.train()
     
-        # Generatore ciclico per il target dataset
+        
         target_iter = iter(self.val_loader)
     
-        # Barra di avanzamento sul train_loader (source dataset)
+        
         progress_bar = tqdm(self.train_loader, desc="Adversarial Training")
     
         for source_images, source_labels in progress_bar:
-            # Riavvia il target_iter ciclicamente quando termina
+           
             try:
                 target_images, _ = next(target_iter)
             except StopIteration:
                 target_iter = iter(self.val_loader)
                 target_images, _ = next(target_iter)
     
-            # Sposta i dati sul dispositivo
+           
             source_images, source_labels = source_images.to(self.device), source_labels.to(self.device)
             target_images = target_images.to(self.device)
     
-            # Ridimensiona le label per adattarle all'output del modello
+           
             source_labels = torch.nn.functional.interpolate(
-                source_labels.unsqueeze(1).float(),  # Aggiungi dimensione canale
+                source_labels.unsqueeze(1).float(),  
                 size=(self.data_height, self.data_width),
                 mode="nearest"
             ).squeeze(1).long()
@@ -296,7 +295,7 @@ class SemanticSegmentationPipeline:
             class_ious += per_class_iou
             class_counts += (per_class_iou > 0).astype(int)
     
-            # Aggiorna la barra di avanzamento
+            
             progress_bar.set_postfix({
                 "Seg Loss": segmentation_loss.item(),
                 "Adv Loss": adv_target_loss.item(),
@@ -311,15 +310,15 @@ class SemanticSegmentationPipeline:
 
     def _training_step(self):
         if self.adversarial:
-            return self._adversarial_training_step()  # Chiama il metodo adversariale
+            return self._adversarial_training_step() 
         else:
-            return self._standard_training_step()  # Usa l'implementazione attuale
+            return self._standard_training_step() 
 
 
     
     def train(self):
         os.makedirs(self.config["checkpoint_dir"], exist_ok=True)
-        start_epoch = self._load_checkpoint()  # Carica il checkpoint
+        start_epoch = self._load_checkpoint()  
     
         for epoch in range(start_epoch, self.config["epochs"]):
             train_loss, train_miou, train_class_ious = self._training_step()
@@ -328,7 +327,7 @@ class SemanticSegmentationPipeline:
             print(f"Epoch {epoch + 1}/{self.config['epochs']} - Train Loss: {train_loss:.4f}, "
                   f"Val Loss: {val_loss:.4f}, Train mIoU: {train_miou:.4f}, Val mIoU: {val_miou:.4f}")
     
-            # Stampa della IoU per classe
+          
             print("Train IoU per class:")
             for i, iou in enumerate(train_class_ious):
                 print(f"Class {i}: {iou:.4f}")
@@ -337,7 +336,7 @@ class SemanticSegmentationPipeline:
             for i, iou in enumerate(val_class_ious):
                 print(f"Class {i}: {iou:.4f}")
     
-            # Salva il checkpoint
+           
             self._save_checkpoint(epoch)
 
 
@@ -345,8 +344,8 @@ class SemanticSegmentationPipeline:
     def _standard_training_step(self):
         self.model.train()
         total_loss, total_miou = 0, 0
-        class_ious = np.zeros(self.config["num_classes"])  # Per raccogliere IoU per classe
-        class_counts = np.zeros(self.config["num_classes"])  # Per contare classi presenti
+        class_ious = np.zeros(self.config["num_classes"])  
+        class_counts = np.zeros(self.config["num_classes"]) 
     
         for images, labels in tqdm(self.train_loader, desc="Training"):
             images, labels = images.to(self.device), labels.to(self.device)
@@ -382,7 +381,7 @@ class SemanticSegmentationPipeline:
             mean_iou, per_class_iou = self._compute_miou(outputs, labels)
             total_miou += mean_iou
             class_ious += per_class_iou
-            class_counts += (per_class_iou > 0).astype(int)  # Classi valide per evitare divisione per 0
+            class_counts += (per_class_iou > 0).astype(int) 
     
         # Media delle IoU per classe
         avg_class_ious = class_ious / np.maximum(class_counts, 1)
